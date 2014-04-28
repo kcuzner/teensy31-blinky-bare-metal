@@ -1,5 +1,5 @@
 #  Teensy 3.1 Project Makefile
-#  Carl Lunt
+#  Karl Lunt
 #  with modifications by Kevin Cuzner
 
 #  Project Name
