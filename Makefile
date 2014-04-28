@@ -86,6 +86,7 @@ VPATH = $(TEENSY3X_BASEPATH)
 #  List of directories to be searched for include files during compilation
 INCDIRS  = -I$(GCC_INC)
 INCDIRS += -I$(TEENSY3X_INC)
+INCDIRS += -Iinclude
 INCDIRS += -I.
 
 
