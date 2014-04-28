@@ -4,6 +4,8 @@ PROJECT=blinky
 #  Type of CPU/MCU in target hardware
 CPU = cortex-m4
 
+TEENSY3X_BASEPATH = /home/kcuzner/arduino-1.0.5/hardware/teensy/cores/teensy3
+
 #  Build the list of object files needed.  All object files will be built in
 #  the working directory, not the source directories.
 #
@@ -13,7 +15,13 @@ CPU = cortex-m4
 
 CPP_FILES = $(wildcard src/*.cpp)
 C_FILES = $(wildcard src/*.c)
-OBJ_FILES := $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o))) $(addprefix obj/,$(notdir $(C_FILES:.c=.o))) obj/cpu/sysinit.o obj/cpu/crt0.o
+OBJ_FILES := $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o))) $(addprefix obj/,$(notdir $(C_FILES:.c=.o)))
+OBJ_FILES += obj/pins_teensy.o obj/yield.o obj/analog.o obj/mk20dx128.o
+
+#  CPU Frequency (for PLL)
+F_CPU = 96000000
+#  Chip name (for PLL and other things in mk20dx128)
+CHIP = MK20DX256
 
 #  Select the toolchain by providing a path to the top level
 #  directory; this will be the folder that holds the
@@ -26,9 +34,6 @@ TOOLPATH = /usr
 #  example folders (such as common or include) and place them
 #  here.
 TEENSY3X_BASEPATH = /home/kcuzner/arduino-1.0.5/hardware/teensy/cores/teensy3
-
-#  Path to the kinetis source files (cpu/sysinit.o, cpu/crt0.o)
-K20PATH = ../k20
 
 #
 #  Select the target type.  This is typically arm-none-eabi.
@@ -55,9 +60,6 @@ VPATH = $(TEENSY3X_BASEPATH)
 #  List of directories to be searched for include files during compilation
 INCDIRS  = -I$(GCC_INC)
 INCDIRS += -I$(TEENSY3X_INC)
-INCDIRS += -I$(K20PATH)/common
-INCDIRS += -I$(K20PATH)/cpu
-INCDIRS += -I$(K20PATH)/drivers
 INCDIRS += -I.
 
 
@@ -70,12 +72,15 @@ DEBUG = -g
 
 #  List the directories to be searched for libraries during linking.
 #  Optionally, list archives (libxxx.a) to be included during linking. 
-LIBDIRS  = -L"$(TOOLPATH)\$(TARGETTYPE)\lib"
+#LIBDIRS  = -L"$(TOOLPATH)/$(TARGETTYPE)/lib"
+LIBDIRS = 
+#LIBS = -lm
 LIBS =
 
 #  Compiler options
-GCFLAGS = -Wall -fno-common -mcpu=$(CPU) -mthumb -O$(OPTIMIZATION) $(DEBUG)
+GCFLAGS = -Wall -fno-common -mcpu=$(CPU) -mthumb -MMD -O$(OPTIMIZATION) $(DEBUG)
 GCFLAGS += $(INCDIRS)
+GCFLAGS += -DF_CPU=$(F_CPU) -D__$(CHIP)__ -DUSB_SERIAL
 
 # You can uncomment the following line to create an assembly output
 # listing of your C files.  If you do this, however, the sed script
@@ -93,10 +98,11 @@ ASFLAGS = -mcpu=$(CPU)
 
 
 #  Linker options
-LDFLAGS  = -nostdlib -nostartfiles -Map=$(PROJECT).map -T$(LSCRIPT)
-LDFLAGS += --cref
-LDFLAGS += $(LIBDIRS)
-LDFLAGS += $(LIBS)
+LDFLAGS  = -Os -Wl,--gc-sections -mcpu=cortex-m4 -mthumb -T$(LSCRIPT) -Wl,-Map,bin/$(PROJECT).map -v
+#LDFLAGS  = -Map=$(PROJECT).map -T$(LSCRIPT)
+#LDFLAGS += --cref --gc-sections
+#LDFLAGS += $(LIBDIRS)
+#LDFLAGS += $(LIBS)
 
 
 #  Tools paths
@@ -118,29 +124,32 @@ OBJDUMP = $(BINDIR)/arm-none-eabi-objdump
 #  Define a command for removing folders and files during clean.  The
 #  simplest such command is Linux' rm with the -f option.  You can find
 #  suitable versions of rm on the web.
-REMOVE = rm -f
+REMOVE = rm -rf
 
 #########################################################################
 
-all:: $(PROJECT).hex $(PROJECT).bin stats dump
+all:: bin/$(PROJECT).hex bin/$(PROJECT).bin stats dump
 
-$(PROJECT).bin: $(PROJECT).elf
-	$(OBJCOPY) -O binary -j .text -j .data $(PROJECT).elf $(PROJECT).bin
+bin/$(PROJECT).bin: bin/$(PROJECT).elf
+	$(OBJCOPY) -O binary -j .text -j .data bin/$(PROJECT).elf bin/$(PROJECT).bin
 
-$(PROJECT).hex: $(PROJECT).elf
-	$(OBJCOPY) -R .stack -O ihex $(PROJECT).elf $(PROJECT).hex
+bin/$(PROJECT).hex: bin/$(PROJECT).elf
+	$(OBJCOPY) -R .stack -O ihex bin/$(PROJECT).elf bin/$(PROJECT).hex
 
 #  Linker invocation
-$(PROJECT).elf: $(OBJ_FILES)
-	$(LD) $(OBJ_FILES) $(LDFLAGS) -o $(PROJECT).elf
+bin/$(PROJECT).elf: $(OBJ_FILES)
+	@mkdir -p bin
+	$(CC) $(OBJ_FILES) $(LDFLAGS) -o bin/$(PROJECT).elf
 
-stats: $(PROJECT).elf
-	$(SIZE) $(PROJECT).elf
+stats: bin/$(PROJECT).elf
+	$(SIZE) bin/$(PROJECT).elf
 	
-dump: $(PROJECT).elf
-	$(OBJDUMP) -h $(PROJECT).elf    
+dump: bin/$(PROJECT).elf
+	$(OBJDUMP) -h bin/$(PROJECT).elf    
 
 clean:
+	rm -rf obj
+	rm -rf bin
 	$(REMOVE) *.o
 	$(REMOVE) $(PROJECT).hex
 	$(REMOVE) $(PROJECT).elf
@@ -179,7 +188,7 @@ obj/%.o : src/%.c
 	$(CC) $(GCFLAGS) -c $< -o $@ > $(basename $@).lst
 #	$(CC) $(GCFLAGS) -c $< -o $@ 2>&1 | sed -e 's/\(\w\+\):\([0-9]\+\):/\1(\2):/'
 
-obj/%.o : $(K20PATH)/%.c
+obj/%.o : $(TEENSY3X_BASEPATH)/%.c
 	@echo Compiling $<, writing to $@...
 	@mkdir -p $(dir $@)
 	$(CC) $(GCFLAGS) -c $< -o $@ > $(basename $@).lst
