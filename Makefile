@@ -1,6 +1,11 @@
+#  Teensy 3.1 Project Makefile
+#  Carl Lunt
+#  with modifications by Kevin Cuzner
+
 #  Project Name
 PROJECT=blinky
 
+#  Project directory structure
 SRCDIR = src
 OUTPUTDIR = bin
 OBJDIR = obj
@@ -15,10 +20,25 @@ CPU = cortex-m4
 #  You will also need code for startup (following reset) and
 #  any code needed to get the PLL configured.
 
+#  Project C & C++ files which are to be compiled
 CPP_FILES = $(wildcard $(SRCDIR)/*.cpp)
 C_FILES = $(wildcard $(SRCDIR)/*.c)
+
+#  Change project C & C++ files into object files
 OBJ_FILES := $(addprefix $(OBJDIR)/,$(notdir $(CPP_FILES:.cpp=.o))) $(addprefix $(OBJDIR)/,$(notdir $(C_FILES:.c=.o)))
+
+#  Here we add any teensyduino or "library" object files. We compile these files
+#  into the local obj directory, just like the Arduino IDE would do. Projects
+#  won't be sharing the object files for these. Thus, we only put things here
+#  that need to be compiled locally (*.c, *.cpp, *.s). No libries (*.a, *.lib)
+#  go here.
 OBJ_FILES += $(OBJDIR)/pins_teensy.o $(OBJDIR)/yield.o $(OBJDIR)/analog.o $(OBJDIR)/mk20dx128.o
+
+#  Next we need to define some things in order for Teensyduino to work.
+#  Teensyduino in generaly will not throw any errors or generate any warnings if
+#  these are not defined unless they are specifically needed. In particular, the
+#  PLL will not be set up and the chip will be put running at 16Mhz if F_CPU
+#  is not defined since mk20dx128.c will not bother trying to set up the PLL.
 
 #  CPU Frequency (for PLL)
 F_CPU = 96000000
@@ -27,14 +47,15 @@ CHIP = MK20DX256
 
 #  Select the toolchain by providing a path to the top level
 #  directory; this will be the folder that holds the
-#  arm-none-eabi subfolders.
+#  arm-none-eabi subfolders. On linux, this should be /usr or /usr/local.
 TOOLPATH = /usr
 
-#  Provide a base path to your Teensy firmware release folder.
-#  This is the folder containing all of the Teensy source and
-#  include folders.  For example, you would expand any Freescale
-#  example folders (such as common or include) and place them
-#  here.
+#  Holds the base path to the teensyduino installation. We point specifically
+#  to the teensy3 path since we are only compiling for the teensy 3.0 or
+#  teensy 3.1. This path contains the *.h, *.c, and *.cpp files that we need
+#  in order to initialize the chip. We could write our own and that could be
+#  fun, but this makefile will use the ones that come with Teensyduino for
+#  efficiency's sake.
 TEENSY3X_BASEPATH = $(HOME)/arduino-1.0.5/hardware/teensy/cores/teensy3
 
 #
@@ -56,6 +77,9 @@ GCC_INC          = $(TOOLPATH)/$(TARGETTYPE)/include
 #  the VPATH variable.  This lets make tell the compiler where to find
 #  source files outside of the working directory.  If you need more
 #  than one directory, separate their paths with ':'.
+#  
+#  We don't particularly use this since we explicitly specify the src directory,
+#  but we could change things to actually use this.
 VPATH = $(TEENSY3X_BASEPATH)
 
 				
@@ -73,7 +97,9 @@ OPTIMIZATION = 0
 DEBUG = -g
 
 #  List the directories to be searched for libraries during linking.
-#  Optionally, list archives (libxxx.a) to be included during linking. 
+#  Optionally, list archives (libxxx.a) to be included during linking.
+#  
+#  These values are copied from the Makefile that ships with Teensyduino.
 LIBDIRS  =
 LIBS = -lm
 
@@ -98,6 +124,8 @@ ASFLAGS = -mcpu=$(CPU)
 
 
 #  Linker options
+#  Since we are using gcc as the linker rather than ld, we need to pass linker
+#  specific options with the -Wl,<option>,<value> format.
 LDFLAGS  = -Os -Wl,--gc-sections -mcpu=cortex-m4 -mthumb -T$(LSCRIPT) -Wl,-Map,$(OUTPUTDIR)/$(PROJECT).map
 LDFLAGS += $(LIBDIRS)
 LDFLAGS += $(LIBS)
@@ -146,8 +174,8 @@ dump: $(OUTPUTDIR)/$(PROJECT).elf
 	$(OBJDUMP) -h $(OUTPUTDIR)/$(PROJECT).elf    
 
 clean:
-	rm -rf $(OBJDIR)
-	rm -rf $(OUTPUTDIR)
+	$(REMOVE) $(OBJDIR)
+	$(REMOVE) $(OUTPUTDIR)
 
 #  The toolvers target provides a sanity check, so you can determine
 #  exactly which version of each tool will be used when you build.
