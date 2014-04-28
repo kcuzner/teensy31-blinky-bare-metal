@@ -35,7 +35,7 @@ TOOLPATH = /usr
 #  include folders.  For example, you would expand any Freescale
 #  example folders (such as common or include) and place them
 #  here.
-TEENSY3X_BASEPATH = /home/kcuzner/arduino-1.0.5/hardware/teensy/cores/teensy3
+TEENSY3X_BASEPATH = $(HOME)/arduino-1.0.5/hardware/teensy/cores/teensy3
 
 #
 #  Select the target type.  This is typically arm-none-eabi.
@@ -74,10 +74,8 @@ DEBUG = -g
 
 #  List the directories to be searched for libraries during linking.
 #  Optionally, list archives (libxxx.a) to be included during linking. 
-#LIBDIRS  = -L"$(TOOLPATH)/$(TARGETTYPE)/lib"
-LIBDIRS = 
-#LIBS = -lm
-LIBS =
+LIBDIRS  =
+LIBS = -lm
 
 #  Compiler options
 GCFLAGS = -Wall -fno-common -mcpu=$(CPU) -mthumb -MMD -O$(OPTIMIZATION) $(DEBUG)
@@ -100,11 +98,9 @@ ASFLAGS = -mcpu=$(CPU)
 
 
 #  Linker options
-LDFLAGS  = -Os -Wl,--gc-sections -mcpu=cortex-m4 -mthumb -T$(LSCRIPT) -Wl,-Map,$(OUTPUTDIR)/$(PROJECT).map -v
-#LDFLAGS  = -Map=$(PROJECT).map -T$(LSCRIPT)
-#LDFLAGS += --cref --gc-sections
-#LDFLAGS += $(LIBDIRS)
-#LDFLAGS += $(LIBS)
+LDFLAGS  = -Os -Wl,--gc-sections -mcpu=cortex-m4 -mthumb -T$(LSCRIPT) -Wl,-Map,$(OUTPUTDIR)/$(PROJECT).map
+LDFLAGS += $(LIBDIRS)
+LDFLAGS += $(LIBS)
 
 
 #  Tools paths
