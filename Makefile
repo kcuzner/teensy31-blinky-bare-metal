@@ -1,10 +1,12 @@
 #  Project Name
 PROJECT=blinky
 
+SRCDIR = src
+OUTPUTDIR = bin
+OBJDIR = obj
+
 #  Type of CPU/MCU in target hardware
 CPU = cortex-m4
-
-TEENSY3X_BASEPATH = /home/kcuzner/arduino-1.0.5/hardware/teensy/cores/teensy3
 
 #  Build the list of object files needed.  All object files will be built in
 #  the working directory, not the source directories.
@@ -13,10 +15,10 @@ TEENSY3X_BASEPATH = /home/kcuzner/arduino-1.0.5/hardware/teensy/cores/teensy3
 #  You will also need code for startup (following reset) and
 #  any code needed to get the PLL configured.
 
-CPP_FILES = $(wildcard src/*.cpp)
-C_FILES = $(wildcard src/*.c)
-OBJ_FILES := $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o))) $(addprefix obj/,$(notdir $(C_FILES:.c=.o)))
-OBJ_FILES += obj/pins_teensy.o obj/yield.o obj/analog.o obj/mk20dx128.o
+CPP_FILES = $(wildcard $(SRCDIR)/*.cpp)
+C_FILES = $(wildcard $(SRCDIR)/*.c)
+OBJ_FILES := $(addprefix $(OBJDIR)/,$(notdir $(CPP_FILES:.cpp=.o))) $(addprefix $(OBJDIR)/,$(notdir $(C_FILES:.c=.o)))
+OBJ_FILES += $(OBJDIR)/pins_teensy.o $(OBJDIR)/yield.o $(OBJDIR)/analog.o $(OBJDIR)/mk20dx128.o
 
 #  CPU Frequency (for PLL)
 F_CPU = 96000000
@@ -98,7 +100,7 @@ ASFLAGS = -mcpu=$(CPU)
 
 
 #  Linker options
-LDFLAGS  = -Os -Wl,--gc-sections -mcpu=cortex-m4 -mthumb -T$(LSCRIPT) -Wl,-Map,bin/$(PROJECT).map -v
+LDFLAGS  = -Os -Wl,--gc-sections -mcpu=cortex-m4 -mthumb -T$(LSCRIPT) -Wl,-Map,$(OUTPUTDIR)/$(PROJECT).map -v
 #LDFLAGS  = -Map=$(PROJECT).map -T$(LSCRIPT)
 #LDFLAGS += --cref --gc-sections
 #LDFLAGS += $(LIBDIRS)
@@ -128,34 +130,28 @@ REMOVE = rm -rf
 
 #########################################################################
 
-all:: bin/$(PROJECT).hex bin/$(PROJECT).bin stats dump
+all:: $(OUTPUTDIR)/$(PROJECT).hex $(OUTPUTDIR)/$(PROJECT).bin stats dump
 
-bin/$(PROJECT).bin: bin/$(PROJECT).elf
-	$(OBJCOPY) -O binary -j .text -j .data bin/$(PROJECT).elf bin/$(PROJECT).bin
+$(OUTPUTDIR)/$(PROJECT).bin: $(OUTPUTDIR)/$(PROJECT).elf
+	$(OBJCOPY) -O binary -j .text -j .data $(OUTPUTDIR)/$(PROJECT).elf $(OUTPUTDIR)/$(PROJECT).bin
 
-bin/$(PROJECT).hex: bin/$(PROJECT).elf
-	$(OBJCOPY) -R .stack -O ihex bin/$(PROJECT).elf bin/$(PROJECT).hex
+$(OUTPUTDIR)/$(PROJECT).hex: $(OUTPUTDIR)/$(PROJECT).elf
+	$(OBJCOPY) -R .stack -O ihex $(OUTPUTDIR)/$(PROJECT).elf $(OUTPUTDIR)/$(PROJECT).hex
 
 #  Linker invocation
-bin/$(PROJECT).elf: $(OBJ_FILES)
-	@mkdir -p bin
-	$(CC) $(OBJ_FILES) $(LDFLAGS) -o bin/$(PROJECT).elf
+$(OUTPUTDIR)/$(PROJECT).elf: $(OBJ_FILES)
+	@mkdir -p $(dir $@)
+	$(CC) $(OBJ_FILES) $(LDFLAGS) -o $(OUTPUTDIR)/$(PROJECT).elf
 
-stats: bin/$(PROJECT).elf
-	$(SIZE) bin/$(PROJECT).elf
+stats: $(OUTPUTDIR)/$(PROJECT).elf
+	$(SIZE) $(OUTPUTDIR)/$(PROJECT).elf
 	
-dump: bin/$(PROJECT).elf
-	$(OBJDUMP) -h bin/$(PROJECT).elf    
+dump: $(OUTPUTDIR)/$(PROJECT).elf
+	$(OBJDUMP) -h $(OUTPUTDIR)/$(PROJECT).elf    
 
 clean:
-	rm -rf obj
-	rm -rf bin
-	$(REMOVE) *.o
-	$(REMOVE) $(PROJECT).hex
-	$(REMOVE) $(PROJECT).elf
-	$(REMOVE) $(PROJECT).map
-	$(REMOVE) $(PROJECT).bin
-	$(REMOVE) *.lst
+	rm -rf $(OBJDIR)
+	rm -rf $(OUTPUTDIR)
 
 #  The toolvers target provides a sanity check, so you can determine
 #  exactly which version of each tool will be used when you build.
@@ -182,18 +178,23 @@ toolvers:
 #  compile from Visual Studio; the sed script reformats error messages
 #  so Visual Studio's IntelliSense feature can track back to the source
 #  file with the error.
-obj/%.o : src/%.c
+$(OBJDIR)/%.o : $(SRCDIR)/%.c
 	@echo Compiling $<, writing to $@...
 	@mkdir -p $(dir $@)
 	$(CC) $(GCFLAGS) -c $< -o $@ > $(basename $@).lst
 #	$(CC) $(GCFLAGS) -c $< -o $@ 2>&1 | sed -e 's/\(\w\+\):\([0-9]\+\):/\1(\2):/'
 
-obj/%.o : $(TEENSY3X_BASEPATH)/%.c
+$(OBJDIR)/%.o : $(TEENSY3X_BASEPATH)/%.c
 	@echo Compiling $<, writing to $@...
 	@mkdir -p $(dir $@)
 	$(CC) $(GCFLAGS) -c $< -o $@ > $(basename $@).lst
 	
-obj/%.o : src/%.cpp
+$(OBJDIR)/%.o : $(SRCDIR)/%.cpp
+	@mkdir -p $(dir $@)
+	@echo Compiling $<, writing to $@...
+	$(CC) $(GCFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o : $(TEENSY3X_BASEPATH)/%.cpp
 	@mkdir -p $(dir $@)
 	@echo Compiling $<, writing to $@...
 	$(CC) $(GCFLAGS) -c $< -o $@
@@ -204,7 +205,7 @@ obj/%.o : src/%.cpp
 #  compile from Visual Studio; the sed script reformats error messages
 #  so Visual Studio's IntelliSense feature can track back to the source
 #  file with the error.
-obj/%.o : src/%.s
+$(OBJDIR)/%.o : $(SRCDIR)/%.s
 	@echo Assembling $<, writing to $@...
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -o $@ $<  > $(basename $@).lst
